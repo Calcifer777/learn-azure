@@ -16,7 +16,8 @@
     "durableTask": {
       "storageProvider": {
         "type": "AzureStorage"
-      }
+      },
+      "hubName": "%TaskHub%"
     }
   }
 }

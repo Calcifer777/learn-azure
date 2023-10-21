@@ -4,6 +4,7 @@
 
 ```bash
 npm install -g azurite
+npm install -g autorest
 npm install -g azure-functions-core-tools
 ```
 
