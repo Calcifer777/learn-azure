@@ -137,26 +137,26 @@ def trip(context: df.DurableOrchestrationContext):
     destination = context.get_input()["destination"]
     if context.is_replaying is False:
       logging.warning(f"Planning trip to: {destination}")
-    # city_geocoding = yield context.call_activity(name="get_geocoding", input_=str(destination))
-    # in_weather = WeatherInput(lat=city_geocoding["lat"], lon=city_geocoding["lon"])
-    # weather = yield context.call_activity(name="get_city_weather", input_=in_weather.model_dump())
-    # temp = float(weather["current"]["temperature"])
+    city_geocoding = yield context.call_activity(name="get_geocoding", input_=str(destination))
+    in_weather = WeatherInput(lat=city_geocoding["lat"], lon=city_geocoding["lon"])
+    weather = yield context.call_activity(name="get_city_weather", input_=in_weather.model_dump())
+    temp = float(weather["current"]["temperature"])
     feedback_req = dict(
-        # temp=temp,
+        temp=temp,
         workflow_id=context.instance_id,
     )
     yield context.call_activity(name="ask_for_feedback", input_=feedback_req)
     rsp = TripPlanningResponse(
       destination=destination,
       current_temp=10.,
-      # current_temp=temp,
+      current_temp=temp,
     )
-    timer = context.create_timer(context.current_utc_datetime + timedelta(minutes=5))
+    timer = context.create_timer(context.current_utc_datetime + timedelta(minutes=15))
     approval = context.wait_for_external_event("Approval")
     feedback = yield context.task_any([approval, timer])
     if feedback == timer:
       rsp.status = "cancelled"
-    else:
+    elif feedback == approval:
       timer.cancel()  # important
       rsp.status = "planned"
     return rsp.model_dump()
