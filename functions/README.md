@@ -21,3 +21,8 @@ npm install -g azure-functions-core-tools
 - https://github.com/MicrosoftDocs/azure-docs/blob/main/articles/storage/blobs/use-azurite-to-run-automated-tests.md
 
 ### Azure Functions Core Tools: 
+
+
+### Handling SendEventPost
+
+- https://stackoverflow.com/questions/67617410/azure-durable-function-send-eventposturi-by-mail
