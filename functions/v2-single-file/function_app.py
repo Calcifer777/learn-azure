@@ -1,7 +1,9 @@
 import asyncio
+from datetime import timedelta
 import json
 import logging
 import random
+from typing import Optional, Tuple
 
 import azure.functions as func
 import azure.durable_functions as df
@@ -14,8 +16,7 @@ app = df.DFApp(http_auth_level=func.AuthLevel.ANONYMOUS)
 async def http_start(req: func.HttpRequest, client: df.DurableOrchestrationClient):
     function_name = req.route_params.get('functionName')
     client_input: dict = req.get_json()
-    names = client_input.get("names", [])
-    instance_id = await client.start_new(function_name, client_input=names)
+    instance_id = await client.start_new(function_name, client_input=client_input)
     response = client.create_check_status_response(req, instance_id)
     return response
 
@@ -77,3 +78,85 @@ def weather(context: df.DurableOrchestrationContext):
     tasks = [context.call_sub_orchestrator(name="get_weather", input_={"name": n}) for n in names]
     results = yield context.task_all(tasks)
     return results
+
+  
+### External Feedback
+import httpx
+from pydantic import BaseModel
+
+
+@app.activity_trigger(input_name="name")
+async def get_geocoding(name: str):
+    async with httpx.AsyncClient(base_url="https://geocode.maps.co") as client:
+      rsp = await client.get(url=f"/search", params=dict(city=name))
+    if rsp.status_code < 200 or rsp.status_code >= 300:
+        raise ConnectionError(f"Could not fetch geocoding info")
+    weather_response_payload = json.loads(rsp.content)
+    if len(weather_response_payload) == 0:
+        raise RuntimeError("Could not fetch geocoding for {}")
+    resp = weather_response_payload[0]
+    logging.warning(f"Weather: {resp}")
+    return resp
+
+
+class WeatherInput(BaseModel):
+    lat: str
+    lon: str
+
+
+@app.activity_trigger(input_name="latlon")
+async def get_city_weather(latlon: dict):
+    weather_input = WeatherInput.model_validate(latlon)
+    query_params = dict(
+        latitude=round(float(weather_input.lat), 3),
+        longitude=round(float(weather_input.lon), 3),
+        current="temperature"
+    )
+    async with httpx.AsyncClient(base_url="https://api.open-meteo.com") as client:
+      rsp = await client.get(url="/v1/forecast", params=query_params)
+    if rsp.status_code < 200 or rsp.status_code >= 300:
+        raise ConnectionError(f"Could not fetch weather info")
+    weather_response_payload = json.loads(rsp.content)
+    logging.warning(f"Weather: {weather_response_payload}")
+    return weather_response_payload
+
+
+@app.activity_trigger(input_name="req")
+async def ask_for_feedback(req: dict) -> bool:
+    logging.warning(f"Asking for feedback for instance_id: {req['workflow_id']}")
+    return "ok"
+
+class TripPlanningResponse(BaseModel):
+    destination: str
+    current_temp: float
+    status: Optional[str] = None
+
+
+@app.orchestration_trigger(context_name="context")
+def trip(context: df.DurableOrchestrationContext):
+    destination = context.get_input()["destination"]
+    if context.is_replaying is False:
+      logging.warning(f"Planning trip to: {destination}")
+    # city_geocoding = yield context.call_activity(name="get_geocoding", input_=str(destination))
+    # in_weather = WeatherInput(lat=city_geocoding["lat"], lon=city_geocoding["lon"])
+    # weather = yield context.call_activity(name="get_city_weather", input_=in_weather.model_dump())
+    # temp = float(weather["current"]["temperature"])
+    feedback_req = dict(
+        # temp=temp,
+        workflow_id=context.instance_id,
+    )
+    yield context.call_activity(name="ask_for_feedback", input_=feedback_req)
+    rsp = TripPlanningResponse(
+      destination=destination,
+      current_temp=10.,
+      # current_temp=temp,
+    )
+    timer = context.create_timer(context.current_utc_datetime + timedelta(minutes=5))
+    approval = context.wait_for_external_event("Approval")
+    feedback = yield context.task_any([approval, timer])
+    if feedback == timer:
+      rsp.status = "cancelled"
+    else:
+      timer.cancel()  # important
+      rsp.status = "planned"
+    return rsp.model_dump()
