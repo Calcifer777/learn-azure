@@ -5,22 +5,8 @@ import azure.durable_functions as df
 import azure.functions as func
 
 
-def main(req: func.HttpRequest) -> func.HttpResponse:
-    logging.info('Python HTTP trigger function processed a request.')
-
-    name = req.params.get('name')
-    if not name:
-        try:
-            req_body = req.get_json()
-        except ValueError:
-            pass
-        else:
-            name = req_body.get('name')
-
-    if name:
-        return func.HttpResponse(f"Hello, {name}. This HTTP triggered function executed successfully.")
-    else:
-        return func.HttpResponse(
-             "This HTTP triggered function executed successfully. Pass a name in the query string or in the request body for a personalized response.",
-             status_code=200
-        )
+async def main(req: func.HttpRequest, starter: str) -> func.HttpResponse:
+    client = df.DurableOrchestrationClient(starter)
+    instance_id = await client.start_new(req.route_params["functionName"], instance_id=None, client_input=None)
+    logging.info(f"Started orchestration with ID = '{instance_id}")
+    return client.create_check_status_response(req, instance_id=instance_id)

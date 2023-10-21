@@ -6,15 +6,21 @@
       "type": "httpTrigger",
       "direction": "in",
       "name": "req",
+      "route": "orchestrators/{functionName}",
       "methods": [
         "get",
         "post"
       ]
     },
     {
+      "name": "$return",
       "type": "http",
-      "direction": "out",
-      "name": "$return"
+      "direction": "out"
+    },
+    {
+      "name": "starter",
+      "type": "orchestrationClient",
+      "direction": "in"
     }
   ]
 }
