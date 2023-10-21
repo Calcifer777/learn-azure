@@ -12,10 +12,10 @@ curl --request POST http://localhost:7071/api/workflow/weather --data '{"names":
 curl --request POST http://localhost:7071/api/workflow/trip --data '{"destination":"Chicago"}' | jq ".statusQueryGetUri"
 
 # Feedback
-export instance_id="ff294448f1d742508e0e442cc18dd06d"
+export instance_id="eb10aba05091400db31ad6bd26d39da8"
 export token="Xqs-H7pogf5EONFaIv6VzkkhUODCFCYffxrWiEdx8gHyAzFu9_-CTw=="
 
-curl --location --request POST 'http://localhost:7071/runtime/webhooks/durabletask/instances/f74ef99261384693b7b8056d91530160/raiseEvent/Approval' \
+curl --location --request POST "http://localhost:7071/runtime/webhooks/durabletask/instances/${instance_id}/raiseEvent/Approval" \
 --header 'Content-Type: application/json' \
 --header "Authorization: Bearer ${token}" \
 --data-raw '{

@@ -148,7 +148,6 @@ def trip(context: df.DurableOrchestrationContext):
     yield context.call_activity(name="ask_for_feedback", input_=feedback_req)
     rsp = TripPlanningResponse(
       destination=destination,
-      current_temp=10.,
       current_temp=temp,
     )
     timer = context.create_timer(context.current_utc_datetime + timedelta(minutes=15))
