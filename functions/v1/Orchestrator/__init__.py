@@ -5,9 +5,9 @@ from azure.durable_functions import DurableOrchestrationContext, Orchestrator
 
 
 def orchestrator_function(context: DurableOrchestrationContext):
+    logging.info(f"Orchestrator start ...")
     names = context.get_input()
     tasks = [context.call_activity("Hello", n) for n in names]
-    logging.info(f"Orchestrator running...")
     results = yield context.task_all(tasks)
     logging.info(f"Orchestrator - End - Result: {results} from {Path.cwd()}")
     return results
