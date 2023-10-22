@@ -101,7 +101,7 @@ class JsonSerializable(BaseModel):
 
 
 class OrchestratorIn(JsonSerializable):
-    workflow_mgmt: Dict[str, str]
+    callback_uri_template: str
     client_input: dict
 
     @staticmethod
@@ -163,19 +163,19 @@ async def http_start_with_feedback(
     wf_name = req.route_params.get("workflow_name")
     client_input: dict = req.get_json()
     instance_id = str(uuid1())
-    resp = client.create_http_management_payload(instance_id=instance_id)
+    wf_mgmt = client.create_http_management_payload(instance_id=instance_id)
     input_ = OrchestratorIn(
-        workflow_mgmt=resp,
+        callback_uri_template=wf_mgmt["sendEventPostUri"],
         client_input=client_input,
     )
-    await client.start_new(wf_name, client_input=input_, instance_id=instance_id)
+    await client.start_new(wf_name, client_input=input_.model_dump(), instance_id=instance_id)
     rsp = client.create_check_status_response(req, instance_id)
     return rsp
 
 
 @app.orchestration_trigger(context_name="context")
 def trip(context: df.DurableOrchestrationContext):
-    input: OrchestratorIn = context.get_input()
+    input = OrchestratorIn.model_validate(context.get_input())
     destination = input.client_input["destination"]
     if context.is_replaying is False:
         logging.warning(f"Planning to: {destination}")
@@ -196,7 +196,7 @@ def trip(context: df.DurableOrchestrationContext):
     fb_event_name = "Approval"
     fb_req = FeedbackReq(
         output=wf_out.model_dump(),
-        callback_uri=input.workflow_mgmt["sendEventPostUri"].format(eventName=fb_event_name),
+        callback_uri=input.callback_uri_template.format(eventName=fb_event_name),
     )
     yield context.call_activity(name="ask_for_feedback", input_=fb_req)
     timer_task = context.create_timer(
