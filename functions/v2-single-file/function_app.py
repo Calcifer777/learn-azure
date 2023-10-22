@@ -154,10 +154,6 @@ class OrchesratorOut(JsonSerializable):
     def from_json(obj: str):
         return OrchesratorOut.model_validate_json(obj)
 
-    def to_json(self):
-        logging.warning(f"Trying to dump {self}")
-        return self.model_dump()
-
 
 @app.route(route="workflow-with-feedback/{workflow_name}")
 @app.durable_client_input(client_name="client")
@@ -178,7 +174,7 @@ async def http_start_with_feedback(
 
 
 @app.orchestration_trigger(context_name="context")
-def trip(context: df.DurableOrchestrationContext) -> WorkflowOut:
+def trip(context: df.DurableOrchestrationContext):
     input: OrchestratorIn = context.get_input()
     destination = input.client_input["destination"]
     if context.is_replaying is False:
