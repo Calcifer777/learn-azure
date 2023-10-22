@@ -118,6 +118,34 @@ class WeatherIn(JsonSerializable):
         return WeatherIn.model_validate_json(obj)
 
 
+class WeatherCurrentUnits(BaseModel):
+    time: str
+    interval: str
+    temperature: str
+
+
+class WeatherCurrent(BaseModel):
+    time: str
+    interval: int
+    temperature: float
+
+
+class WeatherOut(JsonSerializable):
+    latitude: float
+    longitude: float
+    generationtime_ms: float
+    utc_offset_seconds: int
+    timezone: str
+    timezone_abbreviation: str
+    elevation: float
+    current_units: WeatherCurrentUnits
+    current: WeatherCurrent
+
+    @staticmethod
+    def from_json(obj: str):
+        return WeatherOut.model_validate_json(obj)
+
+
 class FeedbackReq(JsonSerializable):
     output: dict
     callback_uri: str
@@ -182,15 +210,15 @@ def trip(context: df.DurableOrchestrationContext):
     city_geocoding = yield context.call_activity(
         name="get_geocoding", input_=str(destination)
     )
-    in_weather = WeatherIn(lat=city_geocoding["lat"], lon=city_geocoding["lon"])
-    weather = yield context.call_activity(
-        name="get_city_weather", input_=in_weather.model_dump()
+    get_weather_in = WeatherIn(lat=city_geocoding["lat"], lon=city_geocoding["lon"])
+    get_weather_out: WeatherOut = yield context.call_activity(
+        name="get_city_weather", input_=get_weather_in.model_dump()
     )
     wf_out = WorkflowOut(
         destination=destination,
         lat=city_geocoding["lat"],
         lon=city_geocoding["lon"],
-        current_temp=str(weather["current"]["temperature"]),
+        current_temp=str(get_weather_out.current.temperature),
     )
     # Send feedback request
     fb_event_name = "Approval"
@@ -227,14 +255,14 @@ async def get_geocoding(name: str):
         raise ConnectionError(f"Could not fetch geocoding info")
     weather_response_payload = json.loads(rsp.content)
     if len(weather_response_payload) == 0:
-        raise RuntimeError("Could not fetch geocoding for {}")
+        raise RuntimeError(f"Could not fetch geocoding for {name}")
     resp = weather_response_payload[0]
     logging.warning(f"{name} geocoding: {resp}")
     return resp
     
 
 @app.activity_trigger(input_name="latlon")
-async def get_city_weather(latlon: dict):
+async def get_city_weather(latlon: dict) -> WeatherOut:
     latlon = WeatherIn.model_validate(latlon)
     query_params = dict(
         latitude=round(float(latlon.lat), 3),
@@ -245,9 +273,9 @@ async def get_city_weather(latlon: dict):
         rsp = await client.get(url="/v1/forecast", params=query_params)
     if rsp.status_code < 200 or rsp.status_code >= 300:
         raise ConnectionError(f"Could not fetch weather info")
-    weather_response_payload = json.loads(rsp.content)
-    logging.warning(f"Weather: {weather_response_payload}")
-    return weather_response_payload
+    out = WeatherOut.model_validate_json(rsp.content)
+    logging.warning(f"Weather: {out}")
+    return out
 
 
 @app.activity_trigger(input_name="req")
@@ -255,4 +283,3 @@ async def ask_for_feedback(req: dict) -> bool:
     req = FeedbackReq.model_validate(req)
     logging.warning(f"Asking for feedback for instance_id: {req}")
     return "ok"
-
