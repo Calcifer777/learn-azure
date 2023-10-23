@@ -2,7 +2,6 @@ import logging
 
 import azure.durable_functions as df
 import aiohttp
-aiohttp.client_reqrep.ClientResponse
 
 from models import *
 
