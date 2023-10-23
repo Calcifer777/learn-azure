@@ -15,6 +15,7 @@ http_client = aiohttp.ClientSession()
 async def get_geocoding(name: str):
     try:
         async with http_client.get(url="https://geocode.maps.co/search", params=dict(city=name)) as rsp:
+            rsp.raise_for_status()
             weather_response_payload = await rsp.json()
     except aiohttp.ClientConnectionError as e:
         logging.error(f"ClientConnectionError: {e}")
@@ -35,6 +36,7 @@ async def get_city_weather(latlon: dict) -> WeatherOut:
     )
     try:
         async with http_client.get(url="https://api.open-meteo.com/v1/forecast", params=query_params) as rsp:
+            rsp.raise_for_status()
             rsp_content = await rsp.json()
     except aiohttp.ClientConnectionError as e:
         logging.error(f"ClientConnectionError: {e}")
