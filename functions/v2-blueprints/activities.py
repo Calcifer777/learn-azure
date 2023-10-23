@@ -1,22 +1,24 @@
-import json
 import logging
 
 import azure.durable_functions as df
-import httpx
+import aiohttp
+aiohttp.client_reqrep.ClientResponse
 
 from models import *
 
 
 bp = df.Blueprint()
 
+http_client = aiohttp.ClientSession()
+
 
 @bp.activity_trigger(input_name="name")
 async def get_geocoding(name: str):
-    async with httpx.AsyncClient(base_url="https://geocode.maps.co") as client:
-        rsp = await client.get(url=f"/search", params=dict(city=name))
-    if rsp.status_code < 200 or rsp.status_code >= 300:
-        raise ConnectionError(f"Could not fetch geocoding info")
-    weather_response_payload = json.loads(rsp.content)
+    try:
+        async with http_client.get(url="https://geocode.maps.co/search", params=dict(city=name)) as rsp:
+            weather_response_payload = await rsp.json()
+    except aiohttp.ClientConnectionError as e:
+        logging.error(f"ClientConnectionError: {e}")
     if len(weather_response_payload) == 0:
         raise RuntimeError(f"Could not fetch geocoding for {name}")
     resp = weather_response_payload[0]
@@ -32,11 +34,12 @@ async def get_city_weather(latlon: dict) -> WeatherOut:
         longitude=round(float(latlon.lon), 3),
         current="temperature",
     )
-    async with httpx.AsyncClient(base_url="https://api.open-meteo.com") as client:
-        rsp = await client.get(url="/v1/forecast", params=query_params)
-    if rsp.status_code < 200 or rsp.status_code >= 300:
-        raise ConnectionError(f"Could not fetch weather info")
-    out = WeatherOut.model_validate_json(rsp.content)
+    try:
+        async with http_client.get(url="https://api.open-meteo.com/v1/forecast", params=query_params) as rsp:
+            rsp_content = await rsp.json()
+    except aiohttp.ClientConnectionError as e:
+        logging.error(f"ClientConnectionError: {e}")
+    out = WeatherOut.model_validate(rsp_content)
     logging.warning(f"Weather: {out}")
     return out
 
