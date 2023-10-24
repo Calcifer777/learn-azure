@@ -23,9 +23,17 @@ cleanup() {
 # Set up trap to call cleanup on exit or error
 trap cleanup EXIT
 
-# Parse command-line arguments
-EXCLUSIONS=() # List of directories and files to exclude
+# List of directories and files to exclude
+EXCLUSIONS=(
+    ".pytest_cache/*"
+    "__pycache__/*"
+    "requirements*"
+    "tests/*"
+    "pytest*"
+    "*.sh"
+)
 
+# Parse command-line arguments
 while getopts "ho:e:" opt; do
     case $opt in
         h)
@@ -59,8 +67,8 @@ fi
 PROJECT_DIR="$1"
 
 # If output zip file is not specified, use the project directory name
-if [ -z "$OUTPUT_ZIP_FILE" ]; then
-    OUTPUT_ZIP_FILE=$(basename ${PROJECT_DIR}).zip
+if [ -z "$OUTPUT_DIR" ]; then
+    OUTPUT_DIR=$(readlink -f ${PROJECT_DIR})
 fi
 
 # Create a temporary directory
@@ -68,21 +76,22 @@ TMP_DIR=$(mktemp -d)
 
 # Install dependencies in a temp folder environment
 echo "Installing dependencies to deployment package..."
-pip install -q --target "${TMP_DIR}/package" -r "${PROJECT_DIR}/requirements.txt"
+pip install -q --target "${TMP_DIR}/package/.python_packages/lib/site-packages" -r "${PROJECT_DIR}/requirements.txt"
 
 pushd "${TMP_DIR}/package"
 zip -q -r ../package.zip .
 popd
 
+ls -l ${TMP_DIR}/
 echo "Updating package project files..."
 pushd "${PROJECT_DIR}"
-echo "zip -x ${EXCLUSIONS[@]} -r --update ${TMP_DIR}/package.zip .  "  ###
 zip -x "${EXCLUSIONS[@]}" -r --update "${TMP_DIR}/package.zip" "."  
 popd
 
-mv "${TMP_DIR}/package.zip" "${OUTPUT_ZIP_FILE}"
+OUTPUT_ZIP_FILE=${OUTPUT_DIR}/package.zip
+mv "${TMP_DIR}/package.zip" ${OUTPUT_ZIP_FILE}
 
 # Clean up temporary directory
 cleanup
 
-echo "Created ${ZIP_FILE} with dependencies from requirements.txt."
+echo "Created ${OUTPUT_ZIP_FILE} with dependencies from requirements.txt."
