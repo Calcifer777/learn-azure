@@ -1,4 +1,5 @@
-from pydantic import BaseModel
+from typing import List
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class JsonSerializable(BaseModel):
@@ -14,6 +15,26 @@ class OrchestratorIn(JsonSerializable):
     @staticmethod
     def from_json(obj: str):
         return OrchestratorIn.model_validate_json(obj)
+
+
+class GeocodingOut(JsonSerializable):
+    model_config = ConfigDict()
+    place_id: int
+    licence: str
+    powered_by: str
+    osm_type: str
+    osm_id: int
+    boundingbox: List[str]
+    lat: str
+    lon: str
+    display_name: str
+    # class_: str = Field(..., alias='class', validation_alias="class")
+    type: str
+    importance: float
+
+    @staticmethod
+    def from_json(obj: dict):
+        return GeocodingOut.model_validate_json(obj)
 
 
 class WeatherIn(JsonSerializable):

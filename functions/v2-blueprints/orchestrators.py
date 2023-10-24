@@ -14,17 +14,17 @@ def trip(context: df.DurableOrchestrationContext):
     destination = input.client_input["destination"]
     if context.is_replaying is False:
         logging.warning(f"Planning to: {destination}")
-    city_geocoding = yield context.call_activity(
+    city_geocoding: GeocodingOut = yield context.call_activity(
         name="get_geocoding", input_=str(destination)
     )
-    get_weather_in = WeatherIn(lat=city_geocoding["lat"], lon=city_geocoding["lon"])
+    get_weather_in = WeatherIn(lat=city_geocoding.lat, lon=city_geocoding.lon)
     get_weather_out: WeatherOut = yield context.call_activity(
         name="get_city_weather", input_=get_weather_in.model_dump()
     )
     wf_out = WorkflowOut(
         destination=destination,
-        lat=city_geocoding["lat"],
-        lon=city_geocoding["lon"],
+        lat=city_geocoding.lat,
+        lon=city_geocoding.lon,
         current_temp=str(get_weather_out.current.temperature),
     )
     # Send feedback request
