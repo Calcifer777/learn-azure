@@ -8,6 +8,14 @@ npm install -g autorest
 npm install -g azure-functions-core-tools
 ```
 
+## Usage
+
+### Packaging a function
+
+Example:
+```bash
+./scripts/fn2zip.sh -e "tests/*" v2-blueprints
+```
 
 ## Resources
 
@@ -26,3 +34,11 @@ npm install -g azure-functions-core-tools
 ### Handling SendEventPost
 
 - https://stackoverflow.com/questions/67617410/azure-durable-function-send-eventposturi-by-mail
+
+### Testing
+
+https://medium.com/mesh-ai-technology-and-engineering/writing-and-testing-azure-functions-in-the-v2-python-programming-model-c391bd779ff6
+
+### Deployment
+
+Blue/Green: https://medium.com/@brentonlawson/azure-durable-functions-blue-green-deployment-701af5cdebaa

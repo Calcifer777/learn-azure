@@ -1,0 +1,4 @@
+aiohttp
+azure-functions
+azure-functions-durable
+pydantic
